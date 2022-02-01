@@ -54,6 +54,61 @@ class Uncreate(ShowCreation):
         "should_match_start": True,
     }
 
+    
+
+class DrawBorder(Animation):
+    CONFIG = {
+        "run_time": 2,
+        "rate_func": smooth,
+        "stroke_width": 2,
+        "stroke_color": None,
+        "draw_border_animation_config": {},
+    }
+
+    def __init__(self, vmobject, **kwargs):
+        assert(isinstance(vmobject, VMobject))
+        self.sm_to_index = dict([
+            (hash(sm), 0)
+            for sm in vmobject.get_family()
+        ])
+        super().__init__(vmobject, **kwargs)
+
+    def begin(self):
+        # Trigger triangulation calculation
+        for submob in self.mobject.get_family():
+            submob.get_triangulation()
+
+        self.outline = self.get_outline()
+        super().begin()
+        self.mobject.match_style(self.outline)
+        self.mobject.lock_matching_data(self.mobject, self.outline)
+
+    def finish(self):
+        super().finish()
+        self.mobject.unlock_data()
+
+    def get_outline(self):
+        outline = self.mobject.copy()
+        outline.set_fill(opacity=0)
+        for sm in outline.get_family():
+            sm.set_stroke(
+                color=self.get_stroke_color(sm),
+                width=float(self.stroke_width)
+            )
+        return outline
+
+    def get_stroke_color(self, vmobject):
+        if self.stroke_color:
+            return self.stroke_color
+        elif vmobject.get_stroke_width() > 0:
+            return vmobject.get_stroke_color()
+        return vmobject.get_color()
+
+    def get_all_mobjects(self):
+        return [*super().get_all_mobjects(), self.outline]
+
+    def interpolate_submobject(self, submob, start, outline, alpha):
+        submob.interpolate(outline, start, alpha)    
 
 class DrawBorderThenFill(Animation):
     CONFIG = {
